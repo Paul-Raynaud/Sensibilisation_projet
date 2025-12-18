@@ -29,7 +29,7 @@
       >
         Prochain :
         <span :style="{ color: players[currentPlayerIndex]?.color }"
-          >Agent {{ currentPlayerIndex + 1 }}</span
+          >{{ players[currentPlayerIndex]?.name || `Agent ${currentPlayerIndex + 1}` }}</span
         >
       </p>
     </div>

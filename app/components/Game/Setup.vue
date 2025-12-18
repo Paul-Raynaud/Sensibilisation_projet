@@ -10,55 +10,66 @@
     <div
       class="bg-slate-900 border border-slate-800 p-10 rounded-3xl shadow-2xl text-center max-w-md w-full"
     >
-      <p class="text-slate-400 mb-6 font-mono text-sm uppercase">
+      <p class="text-cyan-400 font-mono text-xs uppercase tracking-widest mb-8 opacity-80">
         Configuration de la simulation
       </p>
-      <h2 class="text-xl font-bold mb-6">Nombre d'agents IT ?</h2>
-      <div class="flex justify-center gap-4 mb-8">
-        <button
-          v-for="n in [2, 3, 4]"
-          :key="n"
-          @click="$emit('update:playerCount', n)"
-          :class="[
-            'w-14 h-14 rounded-full font-black text-xl border-2 transition-all',
-            playerCount === n
-              ? 'bg-cyan-500 border-white text-black scale-110'
-              : 'bg-slate-800 border-slate-700 text-slate-400',
-          ]"
-        >
-          {{ n }}
-        </button>
+
+      <!-- Player Count Selection -->
+      <div class="mb-8">
+        <h2 class="text-white font-bold mb-4 text-lg">Nombre d'agents IT</h2>
+        <div class="flex justify-center gap-4">
+          <button
+            v-for="n in [2, 3, 4]"
+            :key="n"
+            @click="$emit('update:playerCount', n)"
+            class="w-14 h-14 rounded-2xl font-black text-xl transition-all duration-300 flex items-center justify-center border-2"
+            :class="[
+              playerCount === n
+                ? 'bg-cyan-500 border-cyan-400 text-white shadow-[0_0_20px_rgba(6,182,212,0.4)] scale-110'
+                : 'bg-slate-800 border-slate-700 text-slate-500 hover:border-slate-500 hover:text-slate-300',
+            ]"
+          >
+            {{ n }}
+          </button>
+        </div>
       </div>
 
-      <div class="space-y-3 mb-8 text-left">
-        <label class="text-sm uppercase font-mono text-cyan-400">Noms des Agents</label>
-        <div v-for="i in playerCount" :key="i" class="flex items-center gap-3">
-          <span class="font-mono text-slate-500 text-sm">#{{ i }}</span>
+      <!-- Player Names -->
+      <div class="space-y-4 mb-8 text-left">
+        <label class="text-xs uppercase font-mono text-cyan-400 ml-1">Identification des Agents</label>
+        <div v-for="i in playerCount" :key="i" class="relative group">
+          <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <span class="text-slate-500 font-mono text-xs">#{{ i }}</span>
+          </div>
           <input
             type="text"
             :value="playerNames[i - 1] || ''"
             @input="(e) => updateName(i - 1, (e.target as HTMLInputElement).value)"
-            :placeholder="`Agent ${i}`"
-            class="w-full bg-slate-800 border-b border-slate-700 p-2 text-white focus:outline-none focus:border-cyan-500 transition-colors"
+            :placeholder="`Nom de code Agent ${i}`"
+            class="w-full bg-slate-950/50 border border-slate-700 rounded-xl py-3 pl-10 pr-4 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500 focus:bg-slate-900 focus:ring-1 focus:ring-cyan-500 transition-all"
           />
         </div>
       </div>
 
-       <div class="mb-10 text-left">
-        <label class="text-sm uppercase font-mono text-cyan-400 block mb-2">Temps par question (sec)</label>
-        <input
-          type="number"
-          :value="quizTimeout"
-          @input="(e) => $emit('update:quizTimeout', Number((e.target as HTMLInputElement).value))"
-          min="5"
-          max="60"
-          class="w-full bg-slate-800 border-b border-slate-700 p-2 text-white font-mono focus:outline-none focus:border-cyan-500 transition-colors"
-        />
+      <!-- Quiz Timeout -->
+      <div class="mb-10 text-left">
+        <label class="text-xs uppercase font-mono text-cyan-400 ml-1 block mb-2">Compte à rebours</label>
+        <div class="relative">
+          <input
+            type="number"
+            :value="quizTimeout"
+            @input="(e) => $emit('update:quizTimeout', Number((e.target as HTMLInputElement).value))"
+            min="5"
+            max="60"
+            class="w-full bg-slate-950/50 border border-slate-700 rounded-xl p-3 text-white font-mono focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all"
+          />
+          <div class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs font-mono">SEC</div>
+        </div>
       </div>
 
       <button
         @click="$emit('start')"
-        class="w-full py-4 bg-cyan-600 hover:bg-cyan-500 text-white font-black rounded-xl uppercase tracking-widest shadow-lg transition-transform active:scale-95"
+        class="w-full py-4 bg-gradient-to-r from-cyan-600 to-cyan-500 hover:from-cyan-500 hover:to-cyan-400 text-white font-black rounded-xl uppercase tracking-widest text-sm shadow-lg shadow-cyan-900/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
       >
         Initialiser le déploiement
       </button>

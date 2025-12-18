@@ -25,7 +25,7 @@
           class="text-[10px] uppercase font-black"
           :style="{ color: p.color }"
         >
-          Agent {{ i + 1 }}
+          {{ p.name || `Agent ${i + 1}` }}
         </div>
         <div class="flex gap-1 mt-1">
           <span v-for="it in p.inventory" :key="it.n" :title="it.d">{{
