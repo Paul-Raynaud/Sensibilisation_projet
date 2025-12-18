@@ -79,7 +79,7 @@
                     class="w-full py-5 bg-cyan-600 hover:bg-cyan-400 disabled:bg-slate-800 text-slate-950 font-black rounded-2xl uppercase tracking-[0.2em] transition-all shadow-[0_10px_20px_rgba(0,0,0,0.3)] disabled:shadow-none active:translate-y-1">
               Lancer le Dé
             </button>
-            <p class="text-xs text-slate-500 font-mono uppercase">
+            <p v-if="players.length" class="text-xs text-slate-500 font-mono uppercase">
               Prochain : <span :style="{ color: players[currentPlayerIndex].color }">Agent {{ currentPlayerIndex + 1 }}</span>
             </p>
           </div>
@@ -113,18 +113,19 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed } from 'vue'
+import { ref, watch, onMounted } from 'vue'
 
 // --- CONFIGURATION STATIQUE ---
+const STORAGE_KEY = 'horizon_compliance_save'
 const totalCases = 40
-const quizCases = [4, 8, 12, 16, 20, 24, 28, 32, 36]
-const itemCases = [6, 11, 22, 30, 38]
+const quizCases = [1,6,11,13,16,21,26,31,36]
+const itemCases = [38]
 const colors = ['#22d3ee', '#f43f5e', '#10b981', '#f59e0b']
 
 // --- ÉTAT DU JEU ---
 const gameState = ref('setup')
 const tempPlayerCount = ref(2)
-const players = reactive([])
+const players = ref([]) // Changé en ref pour faciliter la réhydratation
 const currentPlayerIndex = ref(0)
 const diceResult = ref(0)
 const isRolling = ref(false)
@@ -133,7 +134,7 @@ const showModal = ref(false)
 const modalData = ref({})
 const logs = ref([])
 
-// --- QUESTIONS BASÉES SUR LE COURS ---
+// --- QUESTIONS ---
 const questions = [
   { category: "DCP", q: "Comment définit-on une Donnée à Caractère Personnel (DCP) ?", o: ["Toute info liée à une personne identifiable", "Uniquement le nom et prénom", "Toute donnée stockée sur un cloud"], c: 0 },
   { category: "Minimisation", q: "Que stipule la règle d'or sur la minimisation des données ?", o: ["Collecter un maximum 'au cas où'", "Ne collecter que le strict nécessaire", "Compresser les fichiers pour gagner de la place"], c: 1 },
@@ -145,19 +146,55 @@ const questions = [
   { category: "Finalité", q: "Peut-on utiliser les données scolaires pour faire de la politique ?", o: ["Oui, si c'est pour l'école", "Non, c'est un détournement de finalité", "Seulement par mail"], c: 1 }
 ]
 
+// --- LOGIQUE DE SAUVEGARDE ---
+const saveGame = () => {
+  const data = {
+    gameState: gameState.value,
+    players: players.value,
+    currentPlayerIndex: currentPlayerIndex.value,
+    logs: logs.value,
+    tempPlayerCount: tempPlayerCount.value
+  }
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+}
+
+const loadGame = () => {
+  const saved = localStorage.getItem(STORAGE_KEY)
+  if (saved) {
+    const parsed = JSON.parse(saved)
+    gameState.value = parsed.gameState
+    players.value = parsed.players
+    currentPlayerIndex.value = parsed.currentPlayerIndex
+    logs.value = parsed.logs
+    tempPlayerCount.value = parsed.tempPlayerCount
+    addLog("Session restaurée.", "info")
+  }
+}
+
+// Surveillance automatique des changements
+watch([gameState, players, currentPlayerIndex, logs], () => {
+  saveGame()
+}, { deep: true })
+
+onMounted(() => {
+  loadGame()
+})
+
 // --- LOGIQUE CORE ---
 const startGame = () => {
-  players.length = 0
+  players.value = []
   for (let i = 0; i < tempPlayerCount.value; i++) {
-    players.push({ pos: 0, inventory: [], color: colors[i] })
+    players.value.push({ pos: 0, inventory: [], color: colors[i] })
   }
   gameState.value = 'board'
-  addLog("Simulation initialisée. En attente du déploiement.", "info")
+  addLog("Simulation initialisée.", "info")
 }
 
 const resetGame = () => {
-  if (confirm("Voulez-vous réinitialiser la partie ?")) {
+  if (confirm("Réinitialiser la partie ?")) {
+    localStorage.removeItem(STORAGE_KEY)
     gameState.value = 'setup'
+    players.value = []
     currentPlayerIndex.value = 0
     diceResult.value = 0
     logs.value = []
@@ -166,6 +203,7 @@ const resetGame = () => {
 
 const addLog = (msg, type = "info") => {
   logs.value.unshift({ msg, type, time: new Date().toLocaleTimeString().split(' ')[0] })
+  if (logs.value.length > 20) logs.value.pop()
 }
 
 const getCaseTheme = (idx) => {
@@ -177,16 +215,15 @@ const getCaseTheme = (idx) => {
 }
 
 const getPionPosition = (playerIdx) => {
-  const p = players[playerIdx]
+  const p = players.value[playerIdx]
+  if (!p) return {}
   const row = Math.floor(p.pos / 8)
   let col = p.pos % 8
-  if (row % 2 !== 0) col = 7 - col // Effet serpentin (Zig-Zag)
+  if (row % 2 !== 0) col = 7 - col 
 
   const caseW = 760 / 8
   const caseH = 480 / 5
-  
-  // Décalage pour collision entre joueurs sur la même case
-  const offset = playerIdx * 6 
+  const offset = playerIdx * 5 
 
   return {
     left: `${(col * caseW) + (caseW / 2) - 24 + offset}px`,
@@ -201,17 +238,17 @@ const startTurn = () => {
   const interval = setInterval(() => {
     diceResult.value = Math.floor(Math.random() * 6) + 1
     ticks++
-    if (ticks > 15) {
+    if (ticks > 12) {
       clearInterval(interval)
       isRolling.value = false
       move(diceResult.value)
     }
-  }, 50)
+  }, 60)
 }
 
 const move = async (steps) => {
   isMoving.value = true
-  const p = players[currentPlayerIndex.value]
+  const p = players.value[currentPlayerIndex.value]
   const dir = steps > 0 ? 1 : -1
   const absSteps = Math.abs(steps)
 
@@ -220,18 +257,18 @@ const move = async (steps) => {
     if (p.pos < 0) p.pos = 0
     if (p.pos >= 39) {
       p.pos = 39
-      alert(`AGENT ${currentPlayerIndex.value + 1} A RÉUSSI LE DÉPLOIEMENT !`)
+      alert(`AGENT ${currentPlayerIndex.value + 1} A GAGNÉ !`)
       resetGame()
       return
     }
-    await new Promise(r => setTimeout(r, 300))
+    await new Promise(r => setTimeout(r, 250))
   }
   isMoving.value = false
   handleLanding()
 }
 
 const handleLanding = () => {
-  const p = players[currentPlayerIndex.value]
+  const p = players.value[currentPlayerIndex.value]
   const caseId = p.pos + 1
 
   if (quizCases.includes(caseId)) {
@@ -239,7 +276,7 @@ const handleLanding = () => {
     showModal.value = true
   } else if (itemCases.includes(caseId)) {
     p.inventory.push({ n: "VPN", icon: "🛡️", d: "Protection de recul" })
-    addLog(`Agent ${currentPlayerIndex.value + 1} : Atout 'VPN' récupéré.`)
+    addLog(`Agent ${currentPlayerIndex.value + 1} : VPN activé.`)
     nextTurn()
   } else {
     nextTurn()
@@ -248,43 +285,29 @@ const handleLanding = () => {
 
 const answerQuiz = (idx) => {
   showModal.value = false
-  const p = players[currentPlayerIndex.value]
+  const p = players.value[currentPlayerIndex.value]
   if (idx === modalData.value.c) {
-    addLog(`Agent ${currentPlayerIndex.value + 1} : Conformité validée. Bonus +1`, "success")
+    addLog(`Agent ${currentPlayerIndex.value + 1} : Conformité OK (+1)`, "success")
     move(1)
   } else {
     const vpnIdx = p.inventory.findIndex(i => i.n === "VPN")
     if (vpnIdx > -1) {
       p.inventory.splice(vpnIdx, 1)
-      addLog(`Agent ${currentPlayerIndex.value + 1} : Erreur détectée. VPN utilisé pour bloquer le recul.`)
+      addLog(`Agent ${currentPlayerIndex.value + 1} : Erreur bloquée par VPN.`)
       nextTurn()
     } else {
-      addLog(`Agent ${currentPlayerIndex.value + 1} : Violation détectée ! Recul de ${diceResult.value} cases.`, "error")
+      addLog(`Agent ${currentPlayerIndex.value + 1} : Violation ! Recul de ${diceResult.value}`, "error")
       move(-diceResult.value)
     }
   }
 }
 
 const nextTurn = () => {
-  currentPlayerIndex.value = (currentPlayerIndex.value + 1) % players.length
+  currentPlayerIndex.value = (currentPlayerIndex.value + 1) % players.value.length
 }
 </script>
 
 <style scoped>
 .scale-enter-active, .scale-leave-active { transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
 .scale-enter-from, .scale-leave-to { opacity: 0; transform: scale(0.9) translateY(20px); }
-
-@keyframes ping-small {
-  0% { transform: scale(1); opacity: 1; }
-  100% { transform: scale(1.1); opacity: 0; }
-}
-
-.case.quiz::after {
-  content: '';
-  position: absolute;
-  inset: -2px;
-  border: 2px solid cyan;
-  border-radius: 12px;
-  animation: ping-small 1.5s infinite;
-}
 </style>
