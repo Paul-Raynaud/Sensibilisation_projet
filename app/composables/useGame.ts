@@ -1,13 +1,18 @@
 import { ref, watch, onMounted } from 'vue'
 import type { Player, Log, GameState, Question } from '~/types'
-import { STORAGE_KEY, COLORS, QUESTIONS, QUIZ_CASES, ITEM_CASES } from '~/utils/constants'
+import { STORAGE_KEY, COLORS, QUESTIONS, QUIZ_CASE_COUNT, ITEM_CASE_COUNT } from '~/utils/constants'
 
 export const useGame = () => {
   // --- ÉTAT DU JEU ---
   const gameState = ref<GameState>("setup");
   const tempPlayerCount = ref(2);
   const players = ref<Player[]>([]);
+  const quizCases = ref<number[]>([]);
+  const itemCases = ref<number[]>([]);
+  const playerNames = ref<string[]>([]);
+  const quizTimeout = ref(30);
   const currentPlayerIndex = ref(0);
+
   const diceResult = ref(0);
   const isRolling = ref(false);
   const isMoving = ref(false);
@@ -20,6 +25,9 @@ export const useGame = () => {
     const data = {
       gameState: gameState.value,
       players: players.value,
+      quizCases: quizCases.value,
+      itemCases: itemCases.value,
+      quizTimeout: quizTimeout.value,
       currentPlayerIndex: currentPlayerIndex.value,
       logs: logs.value,
       tempPlayerCount: tempPlayerCount.value,
@@ -33,6 +41,9 @@ export const useGame = () => {
       const parsed = JSON.parse(saved);
       gameState.value = parsed.gameState;
       players.value = parsed.players;
+      quizCases.value = parsed.quizCases || [];
+      itemCases.value = parsed.itemCases || [];
+      quizTimeout.value = parsed.quizTimeout || 30;
       currentPlayerIndex.value = parsed.currentPlayerIndex;
       logs.value = parsed.logs;
       tempPlayerCount.value = parsed.tempPlayerCount;
@@ -54,11 +65,30 @@ export const useGame = () => {
   });
 
   // --- LOGIQUE CORE ---
+  const generateRandomCases = () => {
+    const available = Array.from({ length: 38 }, (_, i) => i + 1); // 1..38
+    for (let i = available.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const valI = available[i]!;
+      const valJ = available[j]!;
+      available[i] = valJ;
+      available[j] = valI;
+    }
+    quizCases.value = available.slice(0, QUIZ_CASE_COUNT);
+    itemCases.value = available.slice(QUIZ_CASE_COUNT, QUIZ_CASE_COUNT + ITEM_CASE_COUNT);
+  };
+
   const startGame = () => {
     players.value = [];
     for (let i = 0; i < tempPlayerCount.value; i++) {
-      players.value.push({ pos: 0, inventory: [], color: COLORS[i] || '#fff' });
+      players.value.push({
+        pos: 0,
+        inventory: [],
+        color: COLORS[i] || "#fff",
+        name: playerNames.value[i] || `Agent ${i + 1}`,
+      });
     }
+    generateRandomCases();
     gameState.value = "board";
     addLog("Simulation initialisée.", "info");
   };
@@ -68,6 +98,8 @@ export const useGame = () => {
       localStorage.removeItem(STORAGE_KEY);
       gameState.value = "setup";
       players.value = [];
+      quizCases.value = [];
+      itemCases.value = [];
       currentPlayerIndex.value = 0;
       diceResult.value = 0;
       logs.value = [];
@@ -92,12 +124,12 @@ export const useGame = () => {
       if (ticks > 12) {
         clearInterval(interval);
         isRolling.value = false;
-        move(diceResult.value);
+        move(diceResult.value, "dice");
       }
     }, 60);
   };
 
-  const move = async (steps: number) => {
+  const move = async (steps: number, source: string = "dice") => {
     isMoving.value = true;
     const p = players.value[currentPlayerIndex.value];
     if (!p) {
@@ -120,22 +152,23 @@ export const useGame = () => {
       await new Promise((r) => setTimeout(r, 250));
     }
     isMoving.value = false;
-    handleLanding();
+    handleLanding(source);
   };
 
-  const handleLanding = () => {
+  const handleLanding = (source: string) => {
     const p = players.value[currentPlayerIndex.value];
     if (!p) return;
 
     const caseId = p.pos + 1;
 
-    if (QUIZ_CASES.includes(caseId)) {
-      const randomQuestion = QUESTIONS[Math.floor(Math.random() * QUESTIONS.length)];
+    if (quizCases.value.includes(caseId)) {
+      const randomQuestion =
+        QUESTIONS[Math.floor(Math.random() * QUESTIONS.length)];
       if (randomQuestion) {
         modalData.value = randomQuestion;
         showModal.value = true;
       }
-    } else if (ITEM_CASES.includes(caseId)) {
+    } else if (itemCases.value.includes(caseId) && source === "dice") {
       p.inventory.push({ n: "VPN", icon: "🛡️", d: "Protection de recul" });
       addLog(`Agent ${currentPlayerIndex.value + 1} : VPN activé.`);
       nextTurn();
@@ -149,12 +182,23 @@ export const useGame = () => {
     const p = players.value[currentPlayerIndex.value];
     if (!p) return;
 
+    // Timeout logic
+    if (idx === -1) {
+      addLog(
+        `Agent ${currentPlayerIndex.value + 1} : Temps écoulé ! Recul de ${diceResult.value
+        }`,
+        "error"
+      );
+      move(-diceResult.value, "quiz");
+      return;
+    }
+
     if (modalData.value && idx === modalData.value.c) {
       addLog(
         `Agent ${currentPlayerIndex.value + 1} : Conformité OK (+1)`,
         "success"
       );
-      move(1);
+      move(1, "quiz");
     } else {
       const vpnIdx = p.inventory.findIndex((i) => i.n === "VPN");
       if (vpnIdx > -1) {
@@ -163,12 +207,11 @@ export const useGame = () => {
         nextTurn();
       } else {
         addLog(
-          `Agent ${currentPlayerIndex.value + 1} : Violation ! Recul de ${
-            diceResult.value
+          `Agent ${currentPlayerIndex.value + 1} : Violation ! Recul de ${diceResult.value
           }`,
           "error"
         );
-        move(-diceResult.value);
+        move(-diceResult.value, "quiz");
       }
     }
   };
@@ -182,6 +225,8 @@ export const useGame = () => {
     gameState,
     tempPlayerCount,
     players,
+    quizCases,
+    itemCases,
     currentPlayerIndex,
     diceResult,
     isRolling,
@@ -193,5 +238,7 @@ export const useGame = () => {
     resetGame,
     startTurn,
     answerQuiz,
+    playerNames,
+    quizTimeout,
   };
 };

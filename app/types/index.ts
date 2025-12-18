@@ -8,6 +8,7 @@ export interface Player {
   pos: number;
   inventory: InventoryItem[];
   color: string;
+  name: string;
 }
 
 export interface Log {

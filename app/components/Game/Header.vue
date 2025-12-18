@@ -7,7 +7,7 @@
         Horizon <span class="text-white">Compliance</span>
       </h1>
       <p class="text-[10px] text-slate-500 font-mono italic">
-        AGENT_TRACKER // ACTIVE_SESSION
+         // 
       </p>
     </div>
     <div class="flex gap-3">

@@ -29,6 +29,33 @@
           {{ n }}
         </button>
       </div>
+
+      <div class="space-y-3 mb-8 text-left">
+        <label class="text-sm uppercase font-mono text-cyan-400">Noms des Agents</label>
+        <div v-for="i in playerCount" :key="i" class="flex items-center gap-3">
+          <span class="font-mono text-slate-500 text-sm">#{{ i }}</span>
+          <input
+            type="text"
+            :value="playerNames[i - 1] || ''"
+            @input="(e) => updateName(i - 1, (e.target as HTMLInputElement).value)"
+            :placeholder="`Agent ${i}`"
+            class="w-full bg-slate-800 border-b border-slate-700 p-2 text-white focus:outline-none focus:border-cyan-500 transition-colors"
+          />
+        </div>
+      </div>
+
+       <div class="mb-10 text-left">
+        <label class="text-sm uppercase font-mono text-cyan-400 block mb-2">Temps par question (sec)</label>
+        <input
+          type="number"
+          :value="quizTimeout"
+          @input="(e) => $emit('update:quizTimeout', Number((e.target as HTMLInputElement).value))"
+          min="5"
+          max="60"
+          class="w-full bg-slate-800 border-b border-slate-700 p-2 text-white font-mono focus:outline-none focus:border-cyan-500 transition-colors"
+        />
+      </div>
+
       <button
         @click="$emit('start')"
         class="w-full py-4 bg-cyan-600 hover:bg-cyan-500 text-white font-black rounded-xl uppercase tracking-widest shadow-lg transition-transform active:scale-95"
@@ -40,12 +67,22 @@
 </template>
 
 <script setup lang="ts">
-defineProps<{
+const props = defineProps<{
   playerCount: number;
+  playerNames: string[];
+  quizTimeout: number;
 }>();
 
-defineEmits<{
+const emit = defineEmits<{
   (e: "update:playerCount", count: number): void;
+  (e: "update:playerNames", names: string[]): void;
+  (e: "update:quizTimeout", seconds: number): void;
   (e: "start"): void;
 }>();
+
+const updateName = (index: number, value: string) => {
+  const newNames = [...props.playerNames];
+  newNames[index] = value;
+  emit("update:playerNames", newNames);
+};
 </script>

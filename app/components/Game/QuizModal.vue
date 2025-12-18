@@ -15,9 +15,19 @@
         >
           {{ data.category }}
         </div>
-        <h3 class="text-2xl font-bold mb-10 leading-relaxed">
+        <h3 class="text-2xl font-bold mb-4 leading-relaxed">
           {{ data.q }}
         </h3>
+        
+        <!-- Timer Progress Bar -->
+        <div class="w-full h-2 bg-slate-800 rounded-full mb-8 overflow-hidden">
+          <div 
+            class="h-full bg-cyan-500 transition-all duration-1000 ease-linear"
+            :style="{ width: `${(timeLeft / props.timeout) * 100}%` }"
+            :class="{ 'bg-rose-500': timeLeft <= 5 }"
+          ></div>
+        </div>
+
         <div class="grid gap-4">
           <button
             v-for="(opt, idx) in data.o"
@@ -39,15 +49,54 @@
 
 <script setup lang="ts">
 import type { Question } from "~/types";
+import { onMounted, onUnmounted, ref, watch } from "vue";
 
-defineProps<{
+const props = defineProps<{
   show: boolean;
   data: Partial<Question>;
+  timeout: number;
 }>();
 
-defineEmits<{
+const emit = defineEmits<{
   (e: "answer", idx: number): void;
 }>();
+
+const timeLeft = ref(props.timeout);
+const timerInterval = ref<any>(null);
+
+const startTimer = () => {
+  stopTimer();
+  timeLeft.value = props.timeout;
+  timerInterval.value = setInterval(() => {
+    timeLeft.value--;
+    if (timeLeft.value <= 0) {
+      stopTimer();
+      emit("answer", -1); // -1 indicates timeout
+    }
+  }, 1000);
+};
+
+const stopTimer = () => {
+  if (timerInterval.value) {
+    clearInterval(timerInterval.value);
+    timerInterval.value = null;
+  }
+};
+
+watch(
+  () => props.show,
+  (newVal) => {
+    if (newVal) {
+      startTimer();
+    } else {
+      stopTimer();
+    }
+  }
+);
+
+onUnmounted(() => {
+  stopTimer();
+});
 </script>
 
 <style scoped>
@@ -59,5 +108,6 @@ defineEmits<{
 .scale-leave-to {
   opacity: 0;
   transform: scale(0.9) translateY(20px);
+  pointer-events: none;
 }
 </style>

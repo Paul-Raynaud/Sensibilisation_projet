@@ -9,29 +9,29 @@
       <div
         v-for="(c, idx) in totalCases"
         :key="idx"
-        :id="'case-' + idx"
+        :id="'case-' + getLogicalIndex(idx)"
         :class="[
           'relative rounded-xl border flex items-center justify-center transition-all duration-300',
-          getCaseTheme(idx),
+          getCaseTheme(getLogicalIndex(idx)),
         ]"
       >
         <span class="absolute top-1 left-2 text-[10px] font-mono opacity-30">{{
-          idx + 1
+          getLogicalIndex(idx) + 1
         }}</span>
-        <div v-if="quizCases.includes(idx + 1)" class="text-2xl drop-shadow-md">
+        <div v-if="quizCases.includes(getLogicalIndex(idx) + 1)" class="text-2xl drop-shadow-md">
           🛡️
         </div>
-        <div v-if="itemCases.includes(idx + 1)" class="text-2xl drop-shadow-md">
+        <div v-if="itemCases.includes(getLogicalIndex(idx) + 1)" class="text-2xl drop-shadow-md">
           🎁
         </div>
         <div
-          v-if="idx === 0"
+          v-if="getLogicalIndex(idx) === 0"
           class="text-[10px] font-black uppercase text-emerald-400"
         >
           Start
         </div>
         <div
-          v-if="idx === 39"
+          v-if="getLogicalIndex(idx) === 39"
           class="text-[10px] font-black uppercase text-rose-500"
         >
           Prod
@@ -52,24 +52,30 @@
 
 <script setup lang="ts">
 import type { Player } from "~/types";
-import { TOTAL_CASES, QUIZ_CASES, ITEM_CASES } from "~/utils/constants";
+import { TOTAL_CASES } from "~/utils/constants";
 
 const props = defineProps<{
   players: Player[];
+  quizCases: number[];
+  itemCases: number[];
 }>();
 
 const totalCases = TOTAL_CASES;
-const quizCases = QUIZ_CASES;
-const itemCases = ITEM_CASES;
 
 const getCaseTheme = (idx: number) => {
   if (idx === 0)
     return "bg-emerald-500/10 border-emerald-500/50 text-emerald-500";
   if (idx === 39) return "bg-rose-500/10 border-rose-500/50 text-rose-500";
-  if (quizCases.includes(idx + 1))
+  if (props.quizCases.includes(idx + 1))
     return "bg-cyan-500/10 border-cyan-500/50 shadow-[inset_0_0_20px_rgba(6,182,212,0.1)]";
-  if (itemCases.includes(idx + 1)) return "bg-amber-500/10 border-amber-500/40";
+  if (props.itemCases.includes(idx + 1)) return "bg-amber-500/10 border-amber-500/40";
   return "bg-slate-900/50 border-slate-800";
+};
+
+const getLogicalIndex = (idx: number) => {
+  const row = Math.floor(idx / 8);
+  const col = idx % 8;
+  return row % 2 === 0 ? idx : row * 8 + (7 - col);
 };
 
 const getPionPosition = (playerIdx: number) => {
